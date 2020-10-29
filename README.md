@@ -10,7 +10,7 @@ Next, procure a raw data file in the "h5" file format associated with the data-t
 
 ```$ python raw_to_root.py -i rawinputfile.h5 -o rootinputfile.root```
 
-Then run following command to produce a ROOT file contained clustered tracks:
+Then run following command to produce a ROOT file containing clustered tracks:
 
 ```$ ./TrackMaker rootinputfile.root```
 
