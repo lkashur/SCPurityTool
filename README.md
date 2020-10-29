@@ -8,7 +8,7 @@ The first step is building the code to produce the two C++/ROOT applications:
 
 Next, procure a raw data file in the "h5" file format associated with the data-taking run of interest.  You will need to convert this raw data file to ROOT file format:
 
-```$ ./raw_to_root.py -i rawinputfile.h5 -o rootinputfile.root```
+```$ python raw_to_root.py -i rawinputfile.h5 -o rootinputfile.root```
 
 Then run following command to produce a ROOT file contained clustered tracks:
 
