@@ -98,8 +98,6 @@ int main(int argc, char **argv)
   const double driftTimeMax = 186.0/(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
   const double driftTimeRange = 6.0/(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
 
-  cout << driftVel << " " << driftTimeMax << " " << driftTimeRange << endl;
-  
   ///////////////////////////////////
   // Define Histograms
   ///////////////////////////////////
