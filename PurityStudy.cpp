@@ -34,14 +34,15 @@
 #include "TVirtualFFT.h"
 #include "TFitResult.h"
 #include "TPaveText.h"
+#include "TF1.h"
 
 using namespace std;
 using namespace std::chrono;
 
 const int numBins = 15;
-const double driftVel = 0.155;
-const double driftTimeMax = 186.0;
-const double driftTimeRange = 6.0;
+const double driftVelE500 = 0.155;
+const double driftTimeMaxE500 = 186.0;
+const double driftTimeRangeE500 = 6.0;
 const double gain = 250.0*3.9;
 const double engConv = 0.0000236/0.66;
 const double pedestal = 78.0;
@@ -66,6 +67,7 @@ int main(int argc, char **argv)
   ///////////////////////////////////
 
   Char_t *inputfilename = (Char_t*)"";
+  double Efield = 500.0;
   if (argc < 2)
   {
     cout << endl << "No input file name specified!  Aborting." << endl << endl;
@@ -74,14 +76,36 @@ int main(int argc, char **argv)
   else
   {
     inputfilename = argv[1];
+    if (argc >= 3)
+    {
+      Efield = (double) atof(argv[2]);
+    }
   }
 
-  TFile outfile("results.root","RECREATE");
-  outfile.cd();
+  ///////////////////////////////////
+  // Set Correct Drift Velocity/Time
+  ///////////////////////////////////
 
+  TF1 driftVelFit("driftVelFit","pol5",-0.05,1.1);
+  driftVelFit.SetParameter(0,0.0);
+  driftVelFit.SetParameter(1,5.53416);
+  driftVelFit.SetParameter(2,-6.53093);
+  driftVelFit.SetParameter(3,3.20752);
+  driftVelFit.SetParameter(4,0.389696);
+  driftVelFit.SetParameter(5,-0.556184);
+  
+  const double driftVel = 0.155*(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
+  const double driftTimeMax = 186.0/(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
+  const double driftTimeRange = 6.0/(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
+
+  cout << driftVel << " " << driftTimeMax << " " << driftTimeRange << endl;
+  
   ///////////////////////////////////
   // Define Histograms
   ///////////////////////////////////
+
+  TFile outfile("results.root","RECREATE");
+  outfile.cd();
 
   TH2F *LifetimeHist2D = new TH2F("LifetimeHist2D","",numBins,0.0,driftTimeMax,50,0.0,160.0);
   TH1F *LifetimeHist2D_ProjX = (TH1F*) LifetimeHist2D->ProjectionX();
