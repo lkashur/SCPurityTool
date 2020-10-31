@@ -18,7 +18,7 @@ This step produces an "analysis.root" file containing information associated wit
 
 ```$ ./PurityStudy analysis.root <efield>```
 
-Here "<efield>" should be the electric field value associated with the run of interest in units of V/cm.  For instance, if the electric field was 1 kV/cm, run this explicit command:
+Here "&ltefield&gt" should be the electric field value associated with the run of interest in units of V/cm.  For instance, if the electric field was 1 kV/cm, run this explicit command:
 
 ```$ ./PurityStudy analysis.root 1000```
 
