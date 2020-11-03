@@ -42,10 +42,20 @@ using namespace std::chrono;
 const int numBins = 15;
 const double driftVelE500 = 0.155;
 const double driftTimeMaxE500 = 186.0;
-const double driftTimeRangeE500 = 6.0;
+const double driftTimeRangeE500 = 8.0;
 const double gain = 250.0*3.9;
-const double engConv = 0.0000236/0.66;
+const double engConv = 0.0000236;
 const double pedestal = 78.0;
+
+const double dEdx = 2.65;
+//const double LAr_density = 1.3849; // 89 K
+const double LAr_density = 1.4095; // 85 K
+const double ModBoxA = 0.930;
+const double ModBoxB = 0.212;
+const double A_Birks = 0.800;
+const double k_Birks = 0.0486;
+
+double FindVecMedian(vector<double> inputvec);
 
 int main(int argc, char **argv)
 {
@@ -93,10 +103,20 @@ int main(int argc, char **argv)
   driftVelFit.SetParameter(3,3.20752);
   driftVelFit.SetParameter(4,0.389696);
   driftVelFit.SetParameter(5,-0.556184);
+
+  double corrFactor = driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5);
+  if(Efield > 500)
+  {
+    corrFactor *= 1.0-((141.5-140.325)/141.5)*((Efield-500.0)/(1000.0-500.0));
+  }
+  else if(Efield < 500)
+  {
+    corrFactor *= 1.0+((330.0-320.0)/320.0)*((500.0-Efield)/(500.0-200.0));
+  }
   
-  const double driftVel = 0.155*(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
-  const double driftTimeMax = 186.0/(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
-  const double driftTimeRange = 6.0/(driftVelFit.Eval(Efield/1000.0)/driftVelFit.Eval(0.5));
+  const double driftVel = driftVelE500*corrFactor;
+  const double driftTimeMax = driftTimeMaxE500/corrFactor;
+  const double driftTimeRange = driftTimeRangeE500/corrFactor;
 
   ///////////////////////////////////
   // Define Histograms
@@ -108,7 +128,8 @@ int main(int argc, char **argv)
   TH2F *LifetimeHist2D = new TH2F("LifetimeHist2D","",numBins,0.0,driftTimeMax,50,0.0,160.0);
   TH1F *LifetimeHist2D_ProjX = (TH1F*) LifetimeHist2D->ProjectionX();
   TProfile *LifetimeHist2D_ProfileX;
-  
+  TH1F *LifetimeHist1D = new TH1F("LifetimeHist1D","",numBins,0.0,driftTimeMax);
+    
   TH1F *dEdxHist = new TH1F("dEdxHist","",50,0.0,6.0);
   TH2F *dEdxHist2D = new TH2F("dEdxHist2D","",numBins,0.0,driftTimeMax,50,0.0,6.0);
   TH1F *dEdxHist2D_ProjX = (TH1F*) dEdxHist2D->ProjectionX();
@@ -137,6 +158,8 @@ int main(int argc, char **argv)
   // First Loop Over Data
   ///////////////////////////////////
 
+  vector<double> dQdxVec[numBins];
+  
   while (readerTracks.Next())
   {
     if((*maxT_T - *minT_T < 10.0*(driftTimeMax-driftTimeRange)) || (*maxT_T - *minT_T > 10.0*(driftTimeMax+driftTimeRange)))
@@ -149,7 +172,7 @@ int main(int argc, char **argv)
     int numHits = trackHitT.GetSize();
     for(int k = 0; k < numHits; k++)
     {
-      int index = round(((((float) numBins)/driftTimeMax/10.0)*(trackHitT[k]-*minT_T))-0.5);
+      int index = round(((((double) numBins)/driftTimeMax/10.0)*(trackHitT[k]-*minT_T))-0.5);
       if(index < 0)
       {
         index = 0;
@@ -166,28 +189,43 @@ int main(int argc, char **argv)
     for(int i = 1; i < numBins-1; i++)
     {
       LifetimeHist2D->Fill(LifetimeHist2D_ProjX->GetBinCenter(i+1),gain*charge[i]/pitch/1000.0);
+      dQdxVec[i].push_back(gain*charge[i]/pitch/1000.0);
     }
   }
 
+  LifetimeHist2D_ProfileX = LifetimeHist2D->ProfileX();
+  for(int i = 0; i < numBins; i++)
+  {
+    double result = FindVecMedian(dQdxVec[i]);
+    if(result > 0.0)
+    {
+      LifetimeHist1D->SetBinContent(i+1,result);
+      LifetimeHist1D->SetBinError(i+1,sqrt(3.14159/2.0)*LifetimeHist2D_ProfileX->GetBinError(i+1));
+    }
+  }
+  
   ///////////////////////////////////
   // Extract Electron Lifetime
   ///////////////////////////////////
 
   outfile.cd();
-  LifetimeHist2D_ProfileX = LifetimeHist2D->ProfileX();
-  LifetimeHist2D_ProfileX->SetName("LifetimeHist2D_ProfileX");
-  TFitResultPtr r = LifetimeHist2D_ProfileX->Fit("expo","QSE");
-  double lifetime_val = fabs(1.0/r->Parameter(1))/1000.0;
-  double lifetime_uncert = fabs(r->Error(1)/r->Parameter(1))*lifetime_val;
+  TF1* lifetime_fit = new TF1("lifetime_fit","[0]*exp(-x/[1])");
+  lifetime_fit->SetParameters(80.0,1000.0);
+  TFitResultPtr r = LifetimeHist1D->Fit("lifetime_fit","MQSE",0,driftTimeMax);
+  double lifetime_val = r->Parameter(1)/1000.0;
+  double lifetime_uncert_pos = fabs(r->UpperError(1)/1000);
+  double lifetime_uncert_neg = fabs(r->LowerError(1)/1000);
 
-  cout << "Electron Lifetime:  " << lifetime_val << " +- " << lifetime_uncert << " ms" << endl;
+  cout << "Electron Lifetime:  " << lifetime_val << " + " << lifetime_uncert_pos << " - " << lifetime_uncert_neg << " ms" << endl;
 
   ///////////////////////////////////
   // Second Loop Over Data
   ///////////////////////////////////
 
-  readerTracks.Restart();
+  //double recombCorr = log(ModBoxA+(ModBoxB*dEdx)/(LAr_density*Efield/1000.0))/((ModBoxB*dEdx)/(LAr_density*Efield/1000.0)); // Modified Box Model
+  double recombCorr = A_Birks/(1.0+(k_Birks*dEdx)/(LAr_density*Efield/1000.0)); // ICARUS Birks Model
   
+  readerTracks.Restart();  
   while (readerTracks.Next())
   {
     if((*maxT_T - *minT_T < 10.0*(driftTimeMax-driftTimeRange)) || (*maxT_T - *minT_T > 10.0*(driftTimeMax+driftTimeRange)))
@@ -200,7 +238,7 @@ int main(int argc, char **argv)
     int numHits = trackHitT.GetSize();
     for(int k = 0; k < numHits; k++)
     {
-      int index = round(((((float) numBins)/driftTimeMax/10.0)*(trackHitT[k]-*minT_T))-0.5);
+      int index = round(((((double) numBins)/driftTimeMax/10.0)*(trackHitT[k]-*minT_T))-0.5);
       if(index < 0)
       {
         index = 0;
@@ -217,10 +255,10 @@ int main(int argc, char **argv)
     for(int i = 0; i < numBins; i++)
     {
       double lifetimeCorr = exp(dEdxHist2D_ProjX->GetBinCenter(i+1)/(1000.0*lifetime_val));
-      dEdxHist2D->Fill(dEdxHist2D_ProjX->GetBinCenter(i+1),engConv*gain*lifetimeCorr*charge[i]/pitch);
+      dEdxHist2D->Fill(dEdxHist2D_ProjX->GetBinCenter(i+1),engConv*gain*lifetimeCorr*charge[i]/recombCorr/pitch);
       if((i > 0) && (i < numBins-1))
       {
-        dEdxHist->Fill(engConv*gain*lifetimeCorr*charge[i]/pitch);
+        dEdxHist->Fill(engConv*gain*lifetimeCorr*charge[i]/recombCorr/pitch);
       }
     }
   }
@@ -247,25 +285,26 @@ int main(int argc, char **argv)
 
   TCanvas c2;
   c2.cd();
-  LifetimeHist2D_ProfileX->Draw();
-  LifetimeHist2D_ProfileX->SetMarkerColor(kBlack);
-  LifetimeHist2D_ProfileX->SetLineColor(kBlack);
-  LifetimeHist2D_ProfileX->SetLineWidth(3.0);
-  LifetimeHist2D_ProfileX->SetTitle("");
-  LifetimeHist2D_ProfileX->GetXaxis()->SetTitle("Drift Time [#mus]");
-  LifetimeHist2D_ProfileX->GetXaxis()->SetTitleSize(0.045);
-  LifetimeHist2D_ProfileX->GetXaxis()->SetTitleOffset(1.05);
-  LifetimeHist2D_ProfileX->GetXaxis()->SetLabelSize(0.04);
-  LifetimeHist2D_ProfileX->GetYaxis()->SetTitle("Mean dQ/dx [ke#lower[-0.5]{-}/cm]");
-  LifetimeHist2D_ProfileX->GetYaxis()->SetTitleSize(0.045);
-  LifetimeHist2D_ProfileX->GetYaxis()->SetTitleOffset(1.12);
-  LifetimeHist2D_ProfileX->GetYaxis()->SetLabelSize(0.04);
-  LifetimeHist2D_ProfileX->GetYaxis()->SetRangeUser(0.0,160.0);
+  LifetimeHist1D->Draw();
+  LifetimeHist1D->SetMarkerColor(kBlack);
+  LifetimeHist1D->SetLineColor(kBlack);
+  LifetimeHist1D->SetLineWidth(3.0);
+  LifetimeHist1D->SetTitle("");
+  LifetimeHist1D->GetXaxis()->SetTitle("Drift Time [#mus]");
+  LifetimeHist1D->GetXaxis()->SetTitleSize(0.045);
+  LifetimeHist1D->GetXaxis()->SetTitleOffset(1.05);
+  LifetimeHist1D->GetXaxis()->SetLabelSize(0.04);
+  LifetimeHist1D->GetYaxis()->SetTitle("Mean dQ/dx [ke#lower[-0.5]{-}/cm]");
+  LifetimeHist1D->GetYaxis()->SetTitleSize(0.045);
+  LifetimeHist1D->GetYaxis()->SetTitleOffset(1.12);
+  LifetimeHist1D->GetYaxis()->SetLabelSize(0.04);
+  LifetimeHist1D->GetYaxis()->SetRangeUser(0.0,160.0);
   TPaveText* text = new TPaveText(0.45,0.7,0.85,0.85,"nbNDC");
-  text->AddText(Form("Elec. Lifetime:  %.2f #pm %.2f ms",lifetime_val,lifetime_uncert));
+  text->AddText(Form("Elec. Lifetime:  %.2f^{+%.2f}_{-%.2f} ms",lifetime_val,lifetime_uncert_pos,lifetime_uncert_neg));
   text->SetFillColor(kWhite);
+  text->SetTextSize(0.04);
   text->Draw("SAME");
-  c2.SaveAs("LifetimeHist2D_ProfileX.png");
+  c2.SaveAs("LifetimeHist1D.png");
 
   TCanvas c3;
   c3.cd();
@@ -303,12 +342,41 @@ int main(int argc, char **argv)
   
   outfile.cd();
 
+  LifetimeHist1D->Write();
   LifetimeHist2D->Write();
-  LifetimeHist2D_ProfileX->Write();
   dEdxHist->Write();
   dEdxHist2D->Write();
   
   outfile.Close();
 
   return 0;
+}
+
+double FindVecMedian(vector<double> inputvec)
+{
+  int size = inputvec.size();
+
+  double result;
+  if(size == 0)
+  {
+    result = 0.0;
+  }
+  else if(size == 1)
+  {
+    result = inputvec[0];
+  }
+  else
+  {
+    sort(inputvec.begin(), inputvec.end());
+    if(size % 2 == 0)
+    {
+      result = (inputvec[size / 2 - 1] + inputvec[size / 2]) / 2.0;
+    }
+    else
+    {
+      result = inputvec[size / 2];
+    }
+  }
+
+  return result;
 }
