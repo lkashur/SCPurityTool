@@ -154,10 +154,10 @@ int main(int argc, char **argv)
   TFile* inputfile = new TFile(inputfilename,"READ");
   
   TTreeReader reader("tree", inputfile);
-  TTreeReaderValue<unsigned char> dataword(reader, "dataword");
-  TTreeReaderValue<unsigned long long> timestamp(reader, "timestamp");
-  TTreeReaderValue<unsigned long long> chip_id(reader, "chip_id");
-  TTreeReaderValue<unsigned long long> channel_id(reader, "channel_id");
+  TTreeReaderValue<int> dataword(reader, "dataword");
+  TTreeReaderValue<int> timestamp(reader, "timestamp");
+  TTreeReaderValue<int> chip_id(reader, "chip_id");
+  TTreeReaderValue<int> channel_id(reader, "channel_id");
 
   ///////////////////////////////////
   // Loop Over Data
