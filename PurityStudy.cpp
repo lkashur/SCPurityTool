@@ -159,16 +159,19 @@ int main(int argc, char **argv)
   ///////////////////////////////////
 
   vector<double> dQdxVec[numBins];
-  
+
+  // Loop through tracks
   while (readerTracks.Next())
   {
+    // Select anode-cathode crossers
     if((*maxT_T - *minT_T < 10.0*(driftTimeMax-driftTimeRange)) || (*maxT_T - *minT_T > 10.0*(driftTimeMax+driftTimeRange)))
     {
       continue;
     }
 
     double charge[numBins] = {0.0};
-	
+
+    // Loop through hits in order to sum charge in bins of drift time
     int numHits = trackHitT.GetSize();
     for(int k = 0; k < numHits; k++)
     {
@@ -184,12 +187,14 @@ int main(int argc, char **argv)
       charge[index] += trackHitC[k]-pedestal;
     }
 
+    // For every track, calculate an effective pitch ("dX" in dQ/dx)
     double pitch = 0.1*(10.0*(dEdxHist2D_ProjX->GetBinCenter(2)-dEdxHist2D_ProjX->GetBinCenter(1))/(*maxT_T-*minT_T))*sqrt(pow(*maxT_X-*minT_X,2)+pow(*maxT_Y-*minT_Y,2)+pow(driftVel*(*maxT_T-*minT_T),2));
 
+    // Calculate dQ/dx
     for(int i = 1; i < numBins-1; i++)
     {
       LifetimeHist2D->Fill(LifetimeHist2D_ProjX->GetBinCenter(i+1),gain*charge[i]/pitch/1000.0);
-      dQdxVec[i].push_back(gain*charge[i]/pitch/1000.0);
+      dQdxVec[i].push_back(gain*charge[i]/pitch/1000.0); // gain converts ADC->e-
     }
   }
 
@@ -208,6 +213,10 @@ int main(int argc, char **argv)
   // Extract Electron Lifetime
   ///////////////////////////////////
 
+  
+  // Fit function of the form
+  //     dQ(t)/dx = dQ_0/dx*exp(-t/tau)
+  // to the distribution of dQ/dx vs drift time and extract tau
   outfile.cd();
   TF1* lifetime_fit = new TF1("lifetime_fit","[0]*exp(-x/[1])");
   lifetime_fit->SetParameters(80.0,1000.0);
