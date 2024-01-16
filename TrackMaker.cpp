@@ -114,8 +114,10 @@ int main(int argc, char **argv)
   ///////////////////////////////////
   // Set Up Output File
   ///////////////////////////////////
-
-  TFile *outputFile = new TFile("analysis.root","RECREATE");
+  string temp = (string) inputfilename;
+  temp = temp.substr(0, temp.size()-5); // delete ".root"
+  temp += "_analysis.root"; // append "_analysis.root  
+  TFile *outputFile = new TFile(temp.c_str(),"RECREATE");
   outputFile->cd();
 
   int eventNum;
@@ -152,7 +154,7 @@ int main(int argc, char **argv)
   TFile* inputfile = new TFile(inputfilename,"READ");
   
   TTreeReader reader("tree", inputfile);
-  TTreeReaderValue<unsigned char> adc_counts(reader, "adc_counts");
+  TTreeReaderValue<unsigned char> dataword(reader, "dataword");
   TTreeReaderValue<unsigned long long> timestamp(reader, "timestamp");
   TTreeReaderValue<unsigned long long> chip_id(reader, "chip_id");
   TTreeReaderValue<unsigned long long> channel_id(reader, "channel_id");
@@ -244,7 +246,7 @@ int main(int argc, char **argv)
       Xval = pixelXvals[*chip_id][*channel_id];
       Yval = pixelYvals[*chip_id][*channel_id];
       Tval = (double) *timestamp;
-      Cval = (double) *adc_counts;
+      Cval = (double) *dataword;
       
       if((Xval == 0.0) && (Yval == 0.0))
       {
