@@ -15,11 +15,14 @@ Then run following command to produce a ROOT file containing clustered tracks:
 ```$ ./TrackMaker datalog.root```
 
 This step produces a "datalog_analysis.root" file containing information associated with clustered tracks.  To view the tracks contained in this file in an event display, you have a few options:
-View a single track:
+
+-View a single track:
 ```$ python3 eventDisplay.py --in_file datalog_analysis.root --track_num 3```
-View N tracks:
+
+-View N tracks:
 ```$ python3 eventDisplay.py --in_file datalog_analysis.root --num_tracks 8```
-View N tracks with a minimum temporal extent requirement (in us):
+
+-View N tracks with a minimum temporal extent requirement (in us):
 ```$ python3 eventDisplay.py --in_file datalog_analysis.root --num_tracks 8 --min_temporal_extent 800```
 
 Finally, to calculate the electron lifetime, run this command:
