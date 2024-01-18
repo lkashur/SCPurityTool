@@ -196,8 +196,9 @@ int main(int argc, char **argv)
       LifetimeHist2D->Fill(LifetimeHist2D_ProjX->GetBinCenter(i+1),gain*charge[i]/pitch/1000.0);
       dQdxVec[i].push_back(gain*charge[i]/pitch/1000.0); // gain converts ADC->e-
     }
-  }
+  } //end first track loop
 
+  // Fill histograms
   LifetimeHist2D_ProfileX = LifetimeHist2D->ProfileX();
   for(int i = 0; i < numBins; i++)
   {
@@ -222,11 +223,13 @@ int main(int argc, char **argv)
   lifetime_fit->SetParameters(80.0,1000.0);
   TFitResultPtr r = LifetimeHist1D->Fit("lifetime_fit","MQSE",0,driftTimeMax);
   double lifetime_val = r->Parameter(1)/1000.0;
+  double fit_res_at_half_drift = (r->Parameter(0)) * exp(-93/(r->Parameter(1)));
   double lifetime_uncert_pos = fabs(r->UpperError(1)/1000);
   double lifetime_uncert_neg = fabs(r->LowerError(1)/1000);
 
   cout << "Electron Lifetime:  " << lifetime_val << " + " << lifetime_uncert_pos << " - " << lifetime_uncert_neg << " ms" << endl;
-
+  cout << "Fit Result at half drift:  "<<"dQ/dx = " << fit_res_at_half_drift << " ke-/cm" <<endl;
+  
   ///////////////////////////////////
   // Second Loop Over Data
   ///////////////////////////////////
