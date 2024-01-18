@@ -8,19 +8,30 @@ The first step is building the code to produce the two C++/ROOT applications:
 
 Next, procure a raw data file in the "h5" file format associated with the data-taking run of interest.  You will need to convert this raw data file to ROOT file format:
 
-```$ python raw_to_root.py -i rawinputfile.h5 -o rootinputfile.root```
+```$ python3 raw_to_root.py --in_file datalog.h5 --out_file datalog.root```
 
 Then run following command to produce a ROOT file containing clustered tracks:
 
-```$ ./TrackMaker rootinputfile.root```
+```$ ./TrackMaker datalog.root```
 
-This step produces an "analysis.root" file containing information associated with clustered tracks.  Finally, to calculate the electron lifetime, run this command:
+This step produces a "datalog_analysis.root" file containing information associated with clustered tracks.  To view the tracks contained in this file in an event display, you have a few options:
 
-```$ ./PurityStudy analysis.root <efield>```
+-View a single track:
+```$ python3 eventDisplay.py --in_file datalog_analysis.root --track_num 3```
+
+-View N tracks:
+```$ python3 eventDisplay.py --in_file datalog_analysis.root --num_tracks 8```
+
+-View N tracks with a minimum temporal extent requirement (in us):
+```$ python3 eventDisplay.py --in_file datalog_analysis.root --num_tracks 8 --min_temporal_extent 800```
+
+Finally, to calculate the electron lifetime, run this command:
+
+```$ ./PurityStudy datalog_analysis.root <efield>```
 
 Here "&lt;efield&gt;" should be the electric field value associated with the run of interest in units of V/cm.  For instance, if the value of the electric field for the run was 1 kV/cm, run this explicit command:
 
-```$ ./PurityStudy analysis.root 1000```
+```$ ./PurityStudy datalog_analysis.root 1000```
 
 Note that 500 V/cm is assumed by default if no value is entered for the electric field.  The electron lifetime and associated uncertainty is printed to the terminal, and several useful plots are created for reference.  Additionally, a "results.root" file is produced containing information needed to reproduce the plots.
 
